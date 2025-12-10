@@ -12,11 +12,11 @@ program
   .option('-o, --output <dir>', 'output directory', process.cwd())
   .action((url, options) => {
     pageLoader(url, options.output)
-    .then(filepath => console.log(filepath))
-    .catch(error => {
-      console.error('Error:', error.message);
-      process.exit(1);
-    })
+      .then(filepath => console.log(filepath))
+      .catch((error) => {
+        console.error('Error:', error.message)
+        process.exit(1)
+      })
   })
 
 program.parse()
