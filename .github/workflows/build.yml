@@ -1,0 +1,44 @@
+name: Build and SonarQube Analysis
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test-and-sonar:
+    name: Test and SonarQube Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Run linter
+        run: make lint
+
+      - name: Run tests with coverage
+        run: make test-coverage
+        env:
+          NODE_ENV: test
+
+      - name: Verify coverage reports
+        run: |
+          ls -la coverage/
+          [ -f "coverage/lcov.info" ] || exit 1
+          echo "Coverage reports generated successfully!"
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
