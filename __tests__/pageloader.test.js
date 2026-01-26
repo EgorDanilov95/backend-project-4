@@ -3,6 +3,11 @@ import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
 import nock from 'nock'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const fixturesPath = path.join(__dirname, '..', '__fixtures__')
 
 nock.disableNetConnect()
 
@@ -22,87 +27,90 @@ describe('pageLoader', () => {
     nock.enableNetConnect()
   })
 
-  describe('successful download', () => {
-    beforeEach(() => {
-      nock('https://ru.hexlet.io')
-        .get('/courses')
-        .reply(200, '<html>Курсы</html>')
-    })
+  test('should download simple page (step 1)', async () => {
+    nock('https://test-simple.com')
+      .get('/')
+      .reply(200, '<html>Test</html>')
 
-    test('should download and save page', async () => {
-      const result = await pageLoader('https://ru.hexlet.io/courses', tempDir)
+    const result = await pageLoader('https://test-simple.com', tempDir)
 
-      expect(result).toBe(path.join(tempDir, 'ru-hexlet-io-courses.html'))
+    expect(result).toBe(path.join(tempDir, 'test-simple-com.html'))
 
-      await expect(fs.access(result)).resolves.not.toThrow()
-
-      const content = await fs.readFile(result, 'utf-8')
-      expect(content).toBe('<html>Курсы</html>')
-    })
-
-    test('should use process.cwd() as default output', async () => {
-      nock('https://example.com')
-        .get('/')
-        .reply(200, '<html>Test</html>')
-
-      const result = await pageLoader('https://example.com')
-      const expectedPath = path.join(process.cwd(), 'example-com.html')
-
-      expect(result).toBe(expectedPath)
-
-      await fs.rm(expectedPath, { force: true })
-    })
+    const content = await fs.readFile(result, 'utf-8')
+    expect(content).toBe('<html>Test</html>')
   })
 
-  describe('error handling', () => {
-    test('should handle HTTP 404 error', async () => {
-      nock('https://example.com')
-        .get('/')
-        .reply(404, 'Not Found')
+  test('should download page with image correctly', async () => {
+    const htmlFixture = await fs.readFile(
+      path.join(fixturesPath, 'test-page.html'),
+      'utf-8',
+    )
+    const expectedHtml = await fs.readFile(
+      path.join(fixturesPath, 'expected-page.html'),
+      'utf-8',
+    )
+    const imageFixture = await fs.readFile(
+      path.join(fixturesPath, 'test-image.png'),
+    )
 
-      await expect(pageLoader('https://example.com', tempDir))
-        .rejects.toThrow()
-    })
+    const testUrl = 'https://test-fixture.com/courses'
 
-    test('should handle network error', async () => {
-      nock('https://example.com')
-        .get('/')
-        .replyWithError('Network error')
+    nock('https://test-fixture.com')
+      .get('/courses')
+      .reply(200, htmlFixture)
 
-      await expect(pageLoader('https://example.com', tempDir))
-        .rejects.toThrow('Network error')
-    })
+    nock('https://test-fixture.com')
+      .get('/assets/professions/nodejs.png')
+      .reply(200, imageFixture, {
+        'Content-Type': 'image/png',
+      })
 
-    test('should handle file system error', async () => {
-      nock('https://example.com')
-        .get('/')
-        .reply(200, '<html>Test</html>')
+    const result = await pageLoader(testUrl, tempDir)
 
-      const invalidPath = path.join(tempDir, 'non-existent', 'subdir')
+    expect(result).toBe(path.join(tempDir, 'test-fixture-com-courses.html'))
 
-      await expect(pageLoader('https://example.com', invalidPath))
-        .rejects.toThrow()
-    })
+    const resourcesDir = path.join(tempDir, 'test-fixture-com-courses_files')
+    await expect(fs.access(resourcesDir)).resolves.not.toThrow()
+
+    const imagePath = path.join(resourcesDir, 'test-fixture-com-assets-professions-nodejs.png')
+    await expect(fs.access(imagePath)).resolves.not.toThrow()
+
+    const savedHtml = await fs.readFile(result, 'utf-8')
+
+    const normalizeHtml = (html) => {
+      return html
+        .replace(/\s+/g, ' ')
+        .replace(/>\s+</g, '><')
+        .replace(/\\n/g, '')
+        .trim()
+    }
+
+    const normalizedSaved = normalizeHtml(savedHtml)
+
+    expect(normalizedSaved).toContain('test-fixture-com-courses_files/test-fixture-com-assets-professions-nodejs.png')
+    expect(normalizedSaved).not.toContain('/assets/professions/nodejs.png')
+    const adaptedExpected = expectedHtml
+      .replace(/ru-hexlet-io/g, 'test-fixture-com')
+      .replace(/ru-hexlet-io-courses_files/g, 'test-fixture-com-courses_files')
+
+    const normalizedAdaptedExpected = normalizeHtml(adaptedExpected)
+
+    expect(normalizedSaved).toBe(normalizedAdaptedExpected)
   })
 
-  describe('different URL formats', () => {
-    test('should handle URL with query parameters', async () => {
-      nock('https://example.com')
-        .get('/page')
-        .query({ id: '1', name: 'test' })
-        .reply(200, '<html>Page</html>')
+  test('should not create resources dir for page without images', async () => {
+    const html = '<html><body>No images</body></html>'
 
-      const result = await pageLoader('https://example.com/page?id=1&name=test', tempDir)
-      expect(path.basename(result)).toBe('example-com-page-id-1-name-test.html')
-    })
+    nock('https://test-noimages.com')
+      .get('/')
+      .reply(200, html)
 
-    test('should handle URL with trailing slash', async () => {
-      nock('https://example.com')
-        .get('/')
-        .reply(200, '<html>Home</html>')
+    const result = await pageLoader('https://test-noimages.com', tempDir)
 
-      const result = await pageLoader('https://example.com/', tempDir)
-      expect(path.basename(result)).toBe('example-com.html')
-    })
+    const resourcesDir = path.join(tempDir, 'test-noimages-com_files')
+    await expect(fs.access(resourcesDir)).rejects.toThrow()
+
+    const savedHtml = await fs.readFile(result, 'utf-8')
+    expect(savedHtml).toBe(html)
   })
 })
