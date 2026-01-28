@@ -1,0 +1,1 @@
+import{i as e}from"./utils-Ci6I0vkT.js";var t=typeof window<`u`,n=e(`gon`);if(t&&!n)throw Error(`gon is not initialized`);const r=n??{};export{r as t};

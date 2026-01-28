@@ -1,0 +1,1 @@
+import{t as e}from"./js.cookie-BNspBUg3.js";document.addEventListener(`DOMContentLoaded`,()=>{let t=new Proxy(new URLSearchParams(window.location.search),{get:(e,t)=>e.get(t)});[`utm_source`,`utm_medium`,`utm_campaign`,`utm_content`,`utm_term`,`cpa_client_id`,`admitad_uid`].forEach(n=>{let r=t[n];r&&e.set(n,r,{expires:30,path:`/`})})});

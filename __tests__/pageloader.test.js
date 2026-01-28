@@ -20,6 +20,11 @@ describe('pageLoader', () => {
 
   afterEach(async () => {
     await fs.rm(tempDir, { recursive: true, force: true })
+      const testOutputDir = path.join(process.cwd(), 'test-output')
+  try {
+    await fs.rm(testOutputDir, { recursive: true, force: true })
+  } catch (error) {
+  }
     nock.cleanAll()
   })
 
@@ -98,19 +103,85 @@ describe('pageLoader', () => {
     expect(normalizedSaved).toBe(normalizedAdaptedExpected)
   })
 
-  test('should not create resources dir for page without images', async () => {
-    const html = '<html><body>No images</body></html>'
+  describe('step 3 - all local resources downloading', () => {
+    test('should download all local resources from fixtures', async () => {
 
-    nock('https://test-noimages.com')
-      .get('/')
-      .reply(200, html)
+      const inputHtml = await fs.readFile(
+        path.join(fixturesPath, 'test-page-resources.html'),
+        'utf-8'
+      )
+      
+      const expectedHtml = await fs.readFile(
+        path.join(fixturesPath, 'expected-page-resources.html'),
+        'utf-8'
+      )
 
-    const result = await pageLoader('https://test-noimages.com', tempDir)
+      const testUrl = 'https://ru.hexlet.io/courses'
+      
+  
+      nock('https://ru.hexlet.io')
+        .get('/courses')
+        .reply(200, inputHtml)
 
-    const resourcesDir = path.join(tempDir, 'test-noimages-com_files')
-    await expect(fs.access(resourcesDir)).rejects.toThrow()
 
-    const savedHtml = await fs.readFile(result, 'utf-8')
-    expect(savedHtml).toBe(html)
+      nock('https://ru.hexlet.io')
+        .get('/assets/professions/nodejs.png')
+        .reply(200, Buffer.from('fake image data'))
+
+      nock('https://ru.hexlet.io')
+        .get('/assets/application.css')
+        .reply(200, 'fake css data')
+
+      nock('https://ru.hexlet.io')
+        .get('/packs/js/runtime.js')
+        .reply(200, 'fake js data')
+
+      nock('https://ru.hexlet.io')
+        .get('/courses')
+        .reply(200, 'canonical page content')
+ 
+      const result = await pageLoader(testUrl, tempDir)
+
+    
+      expect(result).toBe(path.join(tempDir, 'ru-hexlet-io-courses.html'))
+      await expect(fs.access(result)).resolves.not.toThrow()
+
+  
+      const resourcesDir = path.join(tempDir, 'ru-hexlet-io-courses_files')
+      await expect(fs.access(resourcesDir)).resolves.not.toThrow()
+
+  
+      const files = await fs.readdir(resourcesDir)
+      expect(files).toHaveLength(4)
+      
+  
+      const expectedFilenames = [
+        'ru-hexlet-io-assets-professions-nodejs.png',
+        'ru-hexlet-io-assets-application.css',
+        'ru-hexlet-io-packs-js-runtime.js',
+        'ru-hexlet-io-courses.html'
+      ]
+      
+      expectedFilenames.forEach(filename => {
+        expect(files).toContain(filename)
+      })
+
+      const savedHtml = await fs.readFile(result, 'utf-8')
+      
+      
+      const normalizeHtml = (html) => {
+        return html
+          .replace(/\s+/g, ' ')          
+          .replace(/>\s+</g, '><')       
+          .replace(/\\n/g, '')           
+          .trim()                        
+      }
+  
+      const normalizedSaved = normalizeHtml(savedHtml)
+      const normalizedExpected = normalizeHtml(expectedHtml)
+      
+      expect(normalizedSaved).toBe(normalizedExpected)
+    })
   })
 })
+  

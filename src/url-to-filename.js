@@ -17,7 +17,7 @@ const getResourceFilename = (resourceUrl) => {
   if (lastDotIndex === -1) {
     const fullPath = host + pathname
     let name = fullPath.replace(/[^a-z0-9]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
-    return name.substring(0, 100)
+    return name.substring(0, 100) + '.html'
   }
 
   const pathWithoutExt = pathname.substring(0, lastDotIndex)
