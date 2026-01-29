@@ -7,6 +7,9 @@ const { promises: fsp } = fs
 const downloadResource = (url, filepath) => {
   return axios.get(url, { responseType: 'arraybuffer' })
     .then((response) => {
+      if (response.status !== 200) {
+        throw new Error(`Статус ${response.status}`)
+      }
       return fsp.writeFile(filepath, response.data)
     })
     .then(() => filepath)

@@ -9,3 +9,5 @@ https://asciinema.org/a/DmzxRpTWIXUTl6pH - the Second step. Downloading images, 
 https://asciinema.org/a/OKsde7OMxX4Js3VJ - the Third step. Dowloading and save local resources 
 
 https://asciinema.org/a/XdUs8x9y8gdlFmvu - the Fourth step. Added debug. 
+
+https://asciinema.org/a/NgcDqFhSmpdpdKEt - the Fifth step. Added errors handling

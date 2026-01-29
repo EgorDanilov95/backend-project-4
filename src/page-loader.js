@@ -5,7 +5,7 @@ import path from 'path'
 import { transformUrl, getResourcesDirname, getResourceFilename } from './url-to-filename.js'
 import { extractResources, replaceResourceSources } from './html-processor.js'
 import downloadResource from './resource-handler.js'
-import { log, logNetwork, logFile, logError, logResource, logDebug } from './logger.js'
+import { log, logNetwork, logFile, logResource, logDebug } from './logger.js'
 
 const { promises: fsp } = fs
 
@@ -13,12 +13,18 @@ const getData = (url) => {
   logNetwork('Начинаю запрос к %s', url)
   return axios.get(url)
     .then(response => {
+      if (response.status !== 200) {
+        throw new Error(`Ошибка загрузки ${url}: статус ${response.status}`)
+      }
       logNetwork('Успешный ответ от %s, статус: %d, размер: %d байт', 
         url, response.status, response.data.length)
-      return response.data})
-    .catch((error) => {
-      logError('Ошибка при запросе к %s: %O', url, error)
-      throw error
+      return response.data })
+      .catch((error) => {
+      if (error.response) {
+        throw new Error(`Ошибка загрузки ${url}: статус ${error.response.status}`)
+      } else {
+        throw new Error(`Не удалось загрузить ${url}: ${error.message}`)
+      }
     })
 }
 
@@ -43,6 +49,9 @@ const pageLoader = (url, outputDir = process.cwd()) => {
       if (resources.length === 0) {
         return fsp.writeFile(pagePath, html, 'utf-8')
           .then(() => pagePath)
+          .catch((error) => {
+            throw new Error(`Не удалось сохранить файл ${pagePath}: ${error.message}`);
+          })
       }
 
       const resourcesDirname = getResourcesDirname(pageFileName)
@@ -50,6 +59,9 @@ const pageLoader = (url, outputDir = process.cwd()) => {
       logFile('Создаю директорию для ресурсов: %s', resourceDir)
 
       return fsp.mkdir(resourceDir, { recursive: true })
+      .catch((error) => {
+          throw new Error(`Не удалось создать директорию ${resourceDir}: ${error.message}`);
+        })
         .then(() => {
           logFile('Директория создана: %s', resourceDir)
           const downloadPromises = resources.map((resource) => {
@@ -61,6 +73,9 @@ const pageLoader = (url, outputDir = process.cwd()) => {
             logResource('Сохраняю как: %s', resourcePath)
 
             return downloadResource(resource.url, resourcePath)
+            .catch((error) => {
+                throw new Error(`Не удалось скачать ресурс ${resource.url}: ${error.message}`);
+              })
           })
           log('Начинаю скачивание %d ресурсов...', resources.length)
           return Promise.all(downloadPromises)
@@ -75,6 +90,9 @@ const pageLoader = (url, outputDir = process.cwd()) => {
           log('Заменяю ссылки в HTML...')
           const modifiedHtml = replaceResourceSources(html, replacements)
           return fsp.writeFile(pagePath, modifiedHtml, 'utf-8')
+          .catch((error) => {
+              throw new Error(`Не удалось сохранить HTML файл ${pagePath}: ${error.message}`);
+            })
         })
         .then(() => {
           const totalTime = Date.now() - startTime
