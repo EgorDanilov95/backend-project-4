@@ -2,14 +2,14 @@
 export default {
   testEnvironment: 'node',
   testMatch: ['**/__tests__/**/*.test.js'],
-coveragePathIgnorePatterns: [
+  coveragePathIgnorePatterns: [
     '/node_modules/',
     '/__tests__/',
     '/__fixtures__/',
-    '/test-output/',          
-    '/tmp/',                  
-    '/var/tmp/',              
-    '.+\\.(png|jpg|css|html)$' 
+    '/test-output/',
+    '/tmp/',
+    '/var/tmp/',
+    '.+\\.(png|jpg|css|html)$',
   ],
   collectCoverage: true,
   coverageDirectory: 'coverage',
