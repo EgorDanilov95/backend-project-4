@@ -7,3 +7,5 @@ https://asciinema.org/connect/9af304f0-6b01-4984-84a5-0593b661fe01 - Here you ca
 https://asciinema.org/a/DmzxRpTWIXUTl6pH - the Second step. Downloading images, creating resource folder.
 
 https://asciinema.org/a/OKsde7OMxX4Js3VJ - the Third step. Dowloading and save local resources 
+
+https://asciinema.org/a/XdUs8x9y8gdlFmvu - the Fourth step. Added debug. 
