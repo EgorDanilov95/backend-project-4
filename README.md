@@ -11,3 +11,5 @@ https://asciinema.org/a/OKsde7OMxX4Js3VJ - the Third step. Dowloading and save l
 https://asciinema.org/a/XdUs8x9y8gdlFmvu - the Fourth step. Added debug. 
 
 https://asciinema.org/a/NgcDqFhSmpdpdKEt - the Fifth step. Added errors handling
+
+https://asciinema.org/a/YVAM4Asgb5SBHvrf - added Listr spinners. 

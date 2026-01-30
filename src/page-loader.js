@@ -5,7 +5,8 @@ import path from 'path'
 import { transformUrl, getResourcesDirname, getResourceFilename } from './url-to-filename.js'
 import { extractResources, replaceResourceSources } from './html-processor.js'
 import downloadResource from './resource-handler.js'
-import { log, logNetwork, logFile, logResource, logDebug } from './logger.js'
+import { log, logNetwork, logFile, logError, logDebug } from './logger.js'
+import Listr from 'listr'
 
 const { promises: fsp } = fs
 
@@ -35,12 +36,14 @@ const pageLoader = (url, outputDir = process.cwd()) => {
   log('🚀 Начинаю загрузку страницы')
   log('URL: %s', url)
   log('Директория для сохранения: %s', outputDir)
+
   return getData(url)
     .then((html) => {
-      let pageFileName = transformUrl(url)
-      let pagePath = path.join(outputDir, pageFileName)
+      const pageFileName = transformUrl(url)
+      const pagePath = path.join(outputDir, pageFileName)
       logFile('Имя файла для HTML: %s', pageFileName)
       logFile('Полный путь: %s', pagePath)
+
       const resources = extractResources(html, url)
       log('Найдено ресурсов: %d', resources.length)
       logDebug('Ресурсы: %O', resources.map(r => ({
@@ -48,67 +51,83 @@ const pageLoader = (url, outputDir = process.cwd()) => {
         src: r.originalSrc,
         fullUrl: r.url,
       })))
+
       if (resources.length === 0) {
         return fsp.writeFile(pagePath, html, 'utf-8')
-          .then(() => pagePath)
+          .then(() => {
+            log('✅ Загрузка завершена успешно! (без ресурсов)')
+            return pagePath
+          })
           .catch((error) => {
             throw new Error(`Не удалось сохранить файл ${pagePath}: ${error.message}`)
           })
       }
-
       const resourcesDirname = getResourcesDirname(pageFileName)
       const resourceDir = path.join(outputDir, resourcesDirname)
       logFile('Создаю директорию для ресурсов: %s', resourceDir)
 
       return fsp.mkdir(resourceDir, { recursive: true })
-        .catch((error) => {
-          throw new Error(`Не удалось создать директорию ${resourceDir}: ${error.message}`)
-        })
         .then(() => {
-          logFile('Директория создана: %s', resourceDir)
-          const downloadPromises = resources.map((resource) => {
-            const resourceFilename = getResourceFilename(resource.url)
-            const resourcePath = path.join(resourceDir, resourceFilename)
-            resource.localPath = path.join(resourcesDirname, resourceFilename)
+          const tasks = resources.map((resource) => {
+            const filename = getResourceFilename(resource.url)
+            const filepath = path.join(resourceDir, filename)
+            resource.localPath = path.join(resourcesDirname, filename)
 
-            logResource('Скачиваю ресурс: %s', resource.url)
-            logResource('Сохраняю как: %s', resourcePath)
-
-            return downloadResource(resource.url, resourcePath)
-              .catch((error) => {
-                throw new Error(`Не удалось скачать ресурс ${resource.url}: ${error.message}`)
-              })
+            return {
+              title: path.basename(filename),
+              task: () => downloadResource(resource.url, filepath)
+                .catch((error) => {
+                  throw new Error(`Ошибка: ${error.message}`)
+                }),
+            }
           })
-          log('Начинаю скачивание %d ресурсов...', resources.length)
-          return Promise.all(downloadPromises)
-        })
-        .then(() => {
-          const replacements = resources.map(resource => ({
-            tagName: resource.tagName,
-            attributeName: resource.attributeName,
-            originalSrc: resource.originalSrc,
-            newSrc: resource.localPath,
-          }))
-          log('Заменяю ссылки в HTML...')
-          const modifiedHtml = replaceResourceSources(html, replacements)
-          return fsp.writeFile(pagePath, modifiedHtml, 'utf-8')
-            .catch((error) => {
-              throw new Error(`Не удалось сохранить HTML файл ${pagePath}: ${error.message}`)
+
+          console.log('\n📦 Загрузка ресурсов:')
+          const listr = new Listr(tasks, {
+            concurrent: true,
+            exitOnError: false,
+          })
+
+          return listr.run()
+            .then(() => {
+              const replacements = resources.map(resource => ({
+                tagName: resource.tagName,
+                attributeName: resource.attributeName,
+                originalSrc: resource.originalSrc,
+                newSrc: resource.localPath,
+              }))
+
+              log('Заменяю ссылки в HTML...')
+              const modifiedHtml = replaceResourceSources(html, replacements)
+
+              return fsp.writeFile(pagePath, modifiedHtml, 'utf-8')
+                .catch((error) => {
+                  throw new Error(`Не удалось сохранить HTML файл ${pagePath}: ${error.message}`)
+                })
+            })
+            .then(() => {
+              const totalTime = Date.now() - startTime
+              log('✅ Загрузка завершена успешно!')
+              log('📊 Итоги:')
+              log('   Страница: %s', url)
+              log('   Сохранённый HTML: %s', pagePath)
+              log('   Ресурсов: %d', resources.length)
+              log('   Время выполнения: %dms', totalTime)
+              return pagePath
             })
         })
-        .then(() => {
-          const totalTime = Date.now() - startTime
-          log('✅ Загрузка завершена успешно!')
-          log('📊 Итоги:')
-          log('   Страница: %s', url)
-          log('   Сохранённый HTML: %s', pagePath)
-          log('   Ресурсов: %d', resources.length)
-          log('   Время выполнения: %dms', totalTime)
-          return pagePath
-        })
         .catch((error) => {
+          const totalTime = Date.now() - startTime
+          logError('❌ Загрузка завершена с ошибкой за %dms', totalTime)
+          logError('Ошибка: %s', error.message)
           throw error
         })
+    })
+    .catch((error) => {
+      const totalTime = Date.now() - startTime
+      logError('❌ Загрузка завершена с ошибкой за %dms', totalTime)
+      logError('Ошибка: %s', error.message)
+      throw error
     })
 }
 
