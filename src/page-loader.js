@@ -84,7 +84,7 @@ const processResources = (html, resources, pagePath, outputDir, pageFileName) =>
 
   return createResourceDirectory(resourceDir)
     .then(() => prepareResourceTasks(resources, resourceDir, resourcesDirname))
-    .then((tasks) => downloadAllResources(tasks))
+    .then(tasks => downloadAllResources(tasks))
     .then(() => {
       const replacements = resources.map(resource => ({
         tagName: resource.tagName,
@@ -111,20 +111,6 @@ const logCompletion = (startTime, url, pagePath, resources) => {
   return pagePath
 }
 
-const logErrorWithTime = (startTime, error) => {
-  const totalTime = Date.now() - startTime
-  logError('❌ Загрузка завершена с ошибкой за %dms', totalTime)
-  logError('Ошибка: %s', error.message)
-  throw error
-}
-
-const handleDirectoryError = (error, outputDir) => {
-  if (error.code === 'ENOENT') {
-    throw new Error(`Директория не существует: ${outputDir}`)
-  }
-  throw error
-}
-
 const pageLoader = (url, outputDir = process.cwd()) => {
   const startTime = Date.now()
   log('🚀 Начинаю загрузку страницы')
@@ -148,13 +134,13 @@ const pageLoader = (url, outputDir = process.cwd()) => {
       })))
 
       return processResources(html, resources, pagePath, outputDir, pageFileName)
-        .then((resultPath) => logCompletion(startTime, url, resultPath, resources))
+        .then(resultPath => logCompletion(startTime, url, resultPath, resources))
     })
     .catch((error) => {
       const totalTime = Date.now() - startTime
       logError('❌ Загрузка завершена с ошибкой за %dms', totalTime)
       logError('Ошибка: %s', error.message)
-      
+
       if (error.code === 'ENOENT') {
         throw new Error(`Директория не существует: ${outputDir}`)
       }
