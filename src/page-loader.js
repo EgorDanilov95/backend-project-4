@@ -36,8 +36,8 @@ const pageLoader = (url, outputDir = process.cwd()) => {
   log('🚀 Начинаю загрузку страницы')
   log('URL: %s', url)
   log('Директория для сохранения: %s', outputDir)
-
-  return getData(url)
+  return fsp.access(outputDir)
+    .then(() => getData(url))
     .then((html) => {
       const pageFileName = transformUrl(url)
       const pagePath = path.join(outputDir, pageFileName)
@@ -127,6 +127,9 @@ const pageLoader = (url, outputDir = process.cwd()) => {
       const totalTime = Date.now() - startTime
       logError('❌ Загрузка завершена с ошибкой за %dms', totalTime)
       logError('Ошибка: %s', error.message)
+      if (error.code === 'ENOENT') {
+        throw new Error(`Директория не существует: ${outputDir}`)
+      }
       throw error
     })
 }
