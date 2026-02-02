@@ -24,7 +24,7 @@ const getResourceFilename = (resourceUrl) => {
   const extension = pathname.substring(lastDotIndex)
 
   const fullPath = host + pathWithoutExt
-  let processedMain = fullPath.replace(/[^a-z0-9]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
+  let processedMain = fullPath.replace(/[^(a-z0-9)]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
   const maxLength = 150 - extension.length
   if (processedMain.length > maxLength) {
     processedMain = processedMain.substring(0, maxLength)
