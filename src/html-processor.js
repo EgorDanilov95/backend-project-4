@@ -1,11 +1,16 @@
 import * as cheerio from 'cheerio'
 
 const isLocalResource = (resourceUrl, pageUrl) => {
-  const resourceHost = new URL(resourceUrl).hostname
-  const pageHost = new URL(pageUrl).hostname
-  return resourceHost === pageHost
+  try {
+    const absoluteResourceUrl = new URL(resourceUrl, pageUrl)
+    const resourceHost = absoluteResourceUrl.hostname
+    const pageHost = new URL(pageUrl).hostname
+    return resourceHost === pageHost
+  }
+  catch {
+    return false
+  }
 }
-
 const extractResources = (html, baseUrl) => {
   const $ = cheerio.load(html)
   const resources = []
@@ -42,10 +47,14 @@ const extractResources = (html, baseUrl) => {
 const replaceResourceSources = (html, replacements) => {
   const $ = cheerio.load(html)
   replacements.forEach((replacement) => {
-    let selector = `${replacement.tagName}[${replacement.attributeName}="${replacement.originalSrc}"]`
-    let elements = $(selector)
-    elements.attr(replacement.attributeName, replacement.newSrc)
+    $(`${replacement.tagName}[${replacement.attributeName}]`).each((index, element) => {
+      const $element = $(element)
+      if ($element.attr(replacement.attributeName) === replacement.originalSrc) {
+        $element.attr(replacement.attributeName, replacement.newSrc)
+      }
+    })
   })
+
   return $.html()
 }
 
